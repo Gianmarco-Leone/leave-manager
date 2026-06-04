@@ -8,10 +8,14 @@ Un semplice gestore di ferie e permessi self-hosted, costruito con Node.js, Expr
 
 - Tiene traccia di **giorni di ferie** e **ore di permesso/ROL** per account
 - Matura automaticamente giorni e ore il **1° di ogni mese** (configurabile per utente)
-- Mostra il **saldo in tempo reale** con un alert se hai giorni residui dell'anno solare precedente
+- Mostra il **saldo in tempo reale** con gestione intelligente delle ferie pianificate:
+  - 🟢 Saldo positivo senza pianificate → visualizzazione normale
+  - 🟡 Ferie pianificate ma saldo ancora positivo → mostra il netto dopo le pianificate
+  - 🟠 Ferie pianificate in deficit → mostra il saldo negativo e calcola automaticamente entro quando verrà coperto dalla maturazione futura
+- Alert se hai giorni residui dell'anno solare precedente da smaltire
 - Conserva lo **storico** di ogni inserimento, con possibilità di eliminare eventuali errori
-- Supporta **più account**
-- Pannello admin per configurare i tassi di maturazione, aggiungere utenti e fare backfill dei mesi precedenti
+- Supporta **più account** (es. tu e il/la partner)
+- Pannello admin per configurare i tassi di maturazione, aggiungere utenti, impostare il saldo di apertura e fare backfill dei mesi precedenti
 
 ---
 

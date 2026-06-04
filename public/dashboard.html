@@ -122,7 +122,11 @@
     }
 
     .balance-value.leave { color: var(--green); }
+    .balance-value.leave.planned { color: var(--yellow); }
+    .balance-value.leave.deficit { color: #f97316; }
     .balance-value.permission { color: #38bdf8; }
+    .balance-value.permission.planned { color: var(--yellow); }
+    .balance-value.permission.deficit { color: #f97316; }
 
     .balance-sub {
       font-size: 13px;
@@ -634,40 +638,100 @@
 
   // ── BALANCE ───────────────────────────────────────────────────────────────
 
+  function fmtSigned(n, unit) {
+    const v = parseFloat(n) || 0;
+    const s = Math.abs(v).toFixed(unit === 'h' ? 1 : 2).replace(/\.?0+$/, '');
+    return (v < 0 ? '-' : '') + s + ' ' + unit;
+  }
+
   async function loadBalance() {
     try {
       const b = await api('GET', '/balance');
+      const l = b.leave;
+      const p = b.permission;
 
-      document.getElementById('leaveTotal').textContent = fmt(b.leave.remainingTotal, 'gg');
-      document.getElementById('leaveSub').textContent =
-        `${fmt(b.leave.remainingCurrentYear, 'gg')} anno corrente` +
-        (b.leave.remainingFromPreviousYear > 0 ? ` · ${fmt(b.leave.remainingFromPreviousYear, 'gg')} anno prec.` : '');
+      // ── Card ferie ──────────────────────────────────────────────────────
+      const leaveEl = document.getElementById('leaveTotal');
+      const leaveSubEl = document.getElementById('leaveSub');
+      const leaveCard = document.getElementById('leaveCard');
 
-      document.getElementById('permTotal').textContent = fmt(b.permission.remainingTotal, 'h');
-      document.getElementById('permSub').textContent =
-        `${fmt(b.permission.remainingCurrentYear, 'h')} anno corrente` +
-        (b.permission.remainingFromPreviousYear > 0 ? ` · ${fmt(b.permission.remainingFromPreviousYear, 'h')} anno prec.` : '');
+      leaveEl.className = 'balance-value leave';
+      leaveCard.classList.remove('alert-card');
 
-      document.getElementById('leaveAccrued').textContent = fmt(b.leave.accrued, 'gg');
-      document.getElementById('leaveUsed').textContent = fmt(b.leave.used, 'gg');
-      document.getElementById('permAccrued').textContent = fmt(b.permission.accrued, 'h');
-      document.getElementById('permUsed').textContent = fmt(b.permission.used, 'h');
+      if (l.hasPlanned && l.projected < 0) {
+        // Deficit: pianificate più ferie di quelle disponibili
+        leaveEl.classList.add('deficit');
+        leaveEl.textContent = fmtSigned(l.projected, 'gg');
+        leaveSubEl.innerHTML =
+          `Disponibili ora: <strong>${fmt(l.availableNow, 'gg')}</strong> · Pianificate: <strong>${fmt(l.planned, 'gg')}</strong><br>` +
+          `<span style="color:#f97316">Saranno coperte entro <strong>${l.coverDate}</strong></span>`;
+        leaveCard.classList.add('alert-card');
+        leaveCard.style.borderColor = '#f97316';
+      } else if (l.hasPlanned) {
+        // Pianificate ma saldo ancora positivo
+        leaveEl.classList.add('planned');
+        leaveEl.textContent = fmt(l.projected, 'gg');
+        leaveSubEl.innerHTML =
+          `Disponibili ora: <strong>${fmt(l.availableNow, 'gg')}</strong> · Pianificate: <strong>${fmt(l.planned, 'gg')}</strong>`;
+        leaveCard.style.borderColor = '';
+      } else {
+        // Nessuna pianificata — visualizzazione normale
+        leaveEl.textContent = fmt(l.availableNow, 'gg');
+        leaveSubEl.innerHTML =
+          `${fmt(l.accrued, 'gg')} maturate · ${fmt(l.usedPast, 'gg')} usate` +
+          (l.remainingFromPreviousYear > 0 ? ` · <span style="color:var(--yellow)">${fmt(l.remainingFromPreviousYear, 'gg')} da anno prec.</span>` : '');
+        leaveCard.style.borderColor = '';
+      }
 
-      // Alert anno precedente
-      if (b.leave.hasPreviousYearRemainder) {
+      // ── Card permessi ───────────────────────────────────────────────────
+      const permEl = document.getElementById('permTotal');
+      const permSubEl = document.getElementById('permSub');
+      const permCard = document.getElementById('permCard');
+
+      permEl.className = 'balance-value permission';
+      permCard.classList.remove('alert-card');
+
+      if (p.hasPlanned && p.projected < 0) {
+        permEl.classList.add('deficit');
+        permEl.textContent = fmtSigned(p.projected, 'h');
+        permSubEl.innerHTML =
+          `Disponibili ora: <strong>${fmt(p.availableNow, 'h')}</strong> · Pianificate: <strong>${fmt(p.planned, 'h')}</strong><br>` +
+          `<span style="color:#f97316">Saranno coperte entro <strong>${p.coverDate}</strong></span>`;
+        permCard.classList.add('alert-card');
+        permCard.style.borderColor = '#f97316';
+      } else if (p.hasPlanned) {
+        permEl.classList.add('planned');
+        permEl.textContent = fmt(p.projected, 'h');
+        permSubEl.innerHTML =
+          `Disponibili ora: <strong>${fmt(p.availableNow, 'h')}</strong> · Pianificate: <strong>${fmt(p.planned, 'h')}</strong>`;
+        permCard.style.borderColor = '';
+      } else {
+        permEl.textContent = fmt(p.availableNow, 'h');
+        permSubEl.innerHTML =
+          `${fmt(p.accrued, 'h')} maturate · ${fmt(p.usedPast, 'h')} usate` +
+          (p.remainingFromPreviousYear > 0 ? ` · <span style="color:var(--yellow)">${fmt(p.remainingFromPreviousYear, 'h')} da anno prec.</span>` : '');
+        permCard.style.borderColor = '';
+      }
+
+      // ── Riepilogo ────────────────────────────────────────────────────────
+      document.getElementById('leaveAccrued').textContent = fmt(l.accrued, 'gg');
+      document.getElementById('leaveUsed').textContent = fmt(l.usedPast, 'gg');
+      document.getElementById('permAccrued').textContent = fmt(p.accrued, 'h');
+      document.getElementById('permUsed').textContent = fmt(p.usedPast, 'h');
+
+      // ── Alert anno precedente ────────────────────────────────────────────
+      if (l.hasPreviousYearRemainder && !l.hasPlanned) {
         const el = document.getElementById('alertLeave');
         el.classList.add('show');
         document.getElementById('alertLeaveText').textContent =
-          `Hai ${fmt(b.leave.remainingFromPreviousYear, 'gg')} di ferie residue dal ${b.previousYear} — considera di smaltirle!`;
-        document.getElementById('leaveCard').classList.add('alert-card');
+          `Hai ${fmt(l.remainingFromPreviousYear, 'gg')} di ferie residue dal ${b.previousYear} — considera di smaltirle!`;
       }
 
-      if (b.permission.hasPreviousYearRemainder) {
+      if (p.hasPreviousYearRemainder && !p.hasPlanned) {
         const el = document.getElementById('alertPerm');
         el.classList.add('show');
         document.getElementById('alertPermText').textContent =
-          `Hai ${fmt(b.permission.remainingFromPreviousYear, 'h')} di permessi residui dal ${b.previousYear} — considera di smaltirli!`;
-        document.getElementById('permCard').classList.add('alert-card');
+          `Hai ${fmt(p.remainingFromPreviousYear, 'h')} di permessi residui dal ${b.previousYear} — considera di smaltirli!`;
       }
     } catch (e) {
       showToast('Errore caricamento saldo: ' + e.message, true);

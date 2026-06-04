@@ -20,67 +20,130 @@ function requireAdmin(req, res, next) {
 router.get('/balance', requireAuth, (req, res) => {
   const db = getDb();
   const userId = req.session.userId;
-  const currentYear = new Date().getFullYear();
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-12
   const previousYear = currentYear - 1;
 
-  // Totale maturato per anno corrente
+  // Configurazione maturazione (per proiezioni)
+  const config = db.prepare('SELECT * FROM accrual_config WHERE user_id = ?').get(userId);
+  const leaveRate = config ? config.leave_days_per_month : 0;
+  const permRate = config ? config.permission_hours_per_month : 0;
+
+  // Maturato per anno corrente e precedente
   const accrualCurrent = db.prepare(`
     SELECT COALESCE(SUM(leave_days_added), 0) as leave_days,
            COALESCE(SUM(permission_hours_added), 0) as permission_hours
-    FROM monthly_accrual_log
-    WHERE user_id = ? AND year = ?
+    FROM monthly_accrual_log WHERE user_id = ? AND year = ?
   `).get(userId, currentYear);
 
   const accrualPrev = db.prepare(`
     SELECT COALESCE(SUM(leave_days_added), 0) as leave_days,
            COALESCE(SUM(permission_hours_added), 0) as permission_hours
-    FROM monthly_accrual_log
-    WHERE user_id = ? AND year = ?
+    FROM monthly_accrual_log WHERE user_id = ? AND year = ?
   `).get(userId, previousYear);
 
-  // Totale usato per anno
-  const usedLeaveCurrent = db.prepare(`
-    SELECT COALESCE(SUM(days), 0) as total FROM leave_entries WHERE user_id = ? AND year = ?
-  `).get(userId, currentYear);
+  // Voci passate (già fruite) e future (pianificate) — anno corrente
+  const usedLeavePast = db.prepare(`
+    SELECT COALESCE(SUM(days), 0) as total FROM leave_entries
+    WHERE user_id = ? AND year = ? AND entry_date <= ?
+  `).get(userId, currentYear, today);
+
+  const usedLeaveFuture = db.prepare(`
+    SELECT COALESCE(SUM(days), 0) as total FROM leave_entries
+    WHERE user_id = ? AND entry_date > ?
+  `).get(userId, today);
 
   const usedLeavePrev = db.prepare(`
     SELECT COALESCE(SUM(days), 0) as total FROM leave_entries WHERE user_id = ? AND year = ?
   `).get(userId, previousYear);
 
-  const usedPermCurrent = db.prepare(`
-    SELECT COALESCE(SUM(hours), 0) as total FROM permission_entries WHERE user_id = ? AND year = ?
-  `).get(userId, currentYear);
+  const usedPermPast = db.prepare(`
+    SELECT COALESCE(SUM(hours), 0) as total FROM permission_entries
+    WHERE user_id = ? AND year = ? AND entry_date <= ?
+  `).get(userId, currentYear, today);
+
+  const usedPermFuture = db.prepare(`
+    SELECT COALESCE(SUM(hours), 0) as total FROM permission_entries
+    WHERE user_id = ? AND entry_date > ?
+  `).get(userId, today);
 
   const usedPermPrev = db.prepare(`
     SELECT COALESCE(SUM(hours), 0) as total FROM permission_entries WHERE user_id = ? AND year = ?
   `).get(userId, previousYear);
 
+  // Calcoli ferie
   const remainingLeavePrev = accrualPrev.leave_days - usedLeavePrev.total;
-  const remainingLeaveCurrentOnly = accrualCurrent.leave_days - usedLeaveCurrent.total;
-  const remainingLeaveTotal = remainingLeavePrev + remainingLeaveCurrentOnly;
+  const prevLeaveCarryover = Math.max(0, remainingLeavePrev);
 
+  const leaveAvailableNow = parseFloat((prevLeaveCarryover + accrualCurrent.leave_days - usedLeavePast.total).toFixed(2));
+  const leaveProjected = parseFloat((leaveAvailableNow - usedLeaveFuture.total).toFixed(2));
+  const leavePlanned = parseFloat(usedLeaveFuture.total.toFixed(2));
+
+  // Mesi rimanenti nell'anno (escluso quello corrente, già incluso nel cron)
+  const remainingMonthsYear = 12 - currentMonth;
+  const leaveToAccrueYear = parseFloat((remainingMonthsYear * leaveRate).toFixed(2));
+  const leaveProjectedYearEnd = parseFloat((leaveProjected + leaveToAccrueYear).toFixed(2));
+
+  // Mesi necessari per coprire il deficit
+  let leaveMonthsToCover = null;
+  let leaveCoverDate = null;
+  if (leaveProjected < 0 && leaveRate > 0) {
+    leaveMonthsToCover = Math.ceil(-leaveProjected / leaveRate);
+    const coverDate = new Date(now.getFullYear(), now.getMonth() + leaveMonthsToCover, 1);
+    leaveCoverDate = coverDate.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+  }
+
+  // Calcoli permessi
   const remainingPermPrev = accrualPrev.permission_hours - usedPermPrev.total;
-  const remainingPermCurrentOnly = accrualCurrent.permission_hours - usedPermCurrent.total;
-  const remainingPermTotal = remainingPermPrev + remainingPermCurrentOnly;
+  const prevPermCarryover = Math.max(0, remainingPermPrev);
+
+  const permAvailableNow = parseFloat((prevPermCarryover + accrualCurrent.permission_hours - usedPermPast.total).toFixed(2));
+  const permProjected = parseFloat((permAvailableNow - usedPermFuture.total).toFixed(2));
+  const permPlanned = parseFloat(usedPermFuture.total.toFixed(2));
+
+  const permToAccrueYear = parseFloat((remainingMonthsYear * permRate).toFixed(2));
+  const permProjectedYearEnd = parseFloat((permProjected + permToAccrueYear).toFixed(2));
+
+  let permMonthsToCover = null;
+  let permCoverDate = null;
+  if (permProjected < 0 && permRate > 0) {
+    permMonthsToCover = Math.ceil(-permProjected / permRate);
+    const coverDate = new Date(now.getFullYear(), now.getMonth() + permMonthsToCover, 1);
+    permCoverDate = coverDate.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+  }
 
   res.json({
     currentYear,
     previousYear,
     leave: {
       accrued: accrualCurrent.leave_days,
-      used: usedLeaveCurrent.total,
-      remainingCurrentYear: parseFloat(remainingLeaveCurrentOnly.toFixed(2)),
-      remainingFromPreviousYear: parseFloat(Math.max(0, remainingLeavePrev).toFixed(2)),
-      remainingTotal: parseFloat(remainingLeaveTotal.toFixed(2)),
-      hasPreviousYearRemainder: remainingLeavePrev > 0
+      usedPast: parseFloat(usedLeavePast.total.toFixed(2)),
+      planned: leavePlanned,
+      availableNow: leaveAvailableNow,
+      projected: leaveProjected,
+      projectedYearEnd: leaveProjectedYearEnd,
+      toAccrueRestOfYear: leaveToAccrueYear,
+      monthsToCover: leaveMonthsToCover,
+      coverDate: leaveCoverDate,
+      remainingFromPreviousYear: prevLeaveCarryover,
+      hasPreviousYearRemainder: prevLeaveCarryover > 0,
+      hasPlanned: leavePlanned > 0
     },
     permission: {
       accrued: accrualCurrent.permission_hours,
-      used: usedPermCurrent.total,
-      remainingCurrentYear: parseFloat(remainingPermCurrentOnly.toFixed(2)),
-      remainingFromPreviousYear: parseFloat(Math.max(0, remainingPermPrev).toFixed(2)),
-      remainingTotal: parseFloat(remainingPermTotal.toFixed(2)),
-      hasPreviousYearRemainder: remainingPermPrev > 0
+      usedPast: parseFloat(usedPermPast.total.toFixed(2)),
+      planned: permPlanned,
+      availableNow: permAvailableNow,
+      projected: permProjected,
+      projectedYearEnd: permProjectedYearEnd,
+      toAccrueRestOfYear: permToAccrueYear,
+      monthsToCover: permMonthsToCover,
+      coverDate: permCoverDate,
+      remainingFromPreviousYear: prevPermCarryover,
+      hasPreviousYearRemainder: prevPermCarryover > 0,
+      hasPlanned: permPlanned > 0
     }
   });
 });
