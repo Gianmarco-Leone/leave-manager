@@ -285,6 +285,18 @@ router.post('/users', requireAuth, requireAdmin, (req, res) => {
   res.json({ ok: true, id: result.lastInsertRowid });
 });
 
+router.delete('/users/:id', requireAuth, requireAdmin, (req, res) => {
+  const targetId = parseInt(req.params.id);
+  if (req.session.userId === targetId) {
+    return res.status(400).json({ error: 'Non puoi eliminare il tuo stesso account' });
+  }
+  const db = getDb();
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(targetId);
+  if (!user) return res.status(404).json({ error: 'Utente non trovato' });
+  db.prepare('DELETE FROM users WHERE id = ?').run(targetId);
+  res.json({ ok: true });
+});
+
 router.put('/users/:id/password', requireAuth, (req, res) => {
   const targetId = parseInt(req.params.id);
   if (req.session.userId !== targetId && !req.session.isAdmin) {

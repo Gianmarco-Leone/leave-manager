@@ -874,8 +874,13 @@
 
       grid.innerHTML = configs.map(u => `
         <div class="user-config-card">
-          <h4>${u.display_name} ${u.is_admin ? '<span style="color:var(--accent);font-size:11px">[admin]</span>' : ''}</h4>
-          <div class="user-meta">@${u.username}</div>
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <h4>${u.display_name} ${u.is_admin ? '<span style="color:var(--accent);font-size:11px">[admin]</span>' : ''}</h4>
+              <div class="user-meta">@${u.username}</div>
+            </div>
+            ${u.id !== currentUser.userId ? '<button class="btn-sm danger del-user-btn" data-uid="' + u.id + '" data-name="' + u.display_name + '" style="margin-top:2px">Elimina</button>' : ''}
+          </div>
           <div class="config-row">
             <div class="form-group">
               <label>Giorni ferie / mese</label>
@@ -897,6 +902,18 @@
   }
 
   document.getElementById('configGrid').addEventListener('click', async e => {
+    const delBtn = e.target.closest('.del-user-btn');
+    if (delBtn) {
+      const { uid, name } = delBtn.dataset;
+      if (!confirm(`Eliminare l'account di ${name} e tutti i suoi dati? L'operazione è irreversibile.`)) return;
+      try {
+        await api('DELETE', `/users/${uid}`);
+        showToast(`Account di ${name} eliminato`);
+        loadAdminPanel();
+      } catch (e) { showToast(e.message, true); }
+      return;
+    }
+
     const btn = e.target.closest('.cfg-save-btn');
     if (!btn) return;
     const uid = btn.dataset.uid;
