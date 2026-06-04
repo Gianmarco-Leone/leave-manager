@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leave Manager</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --border: #334155;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── NAVBAR ── */
+    .navbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .nav-brand { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+    .nav-user { font-size: 14px; color: var(--muted); }
+
+    .btn-sm {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .btn-sm:hover { background: var(--border); }
+    .btn-sm.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn-sm.primary:hover { background: var(--accent-hover); }
+    .btn-sm.danger { background: var(--red); border-color: var(--red); color: #fff; }
+
+    /* ── TABS ── */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      background: var(--surface);
+    }
+
+    .tab {
+      padding: 14px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+      user-select: none;
+    }
+
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .tab-panel { display: none; padding: 24px; max-width: 900px; margin: 0 auto; }
+    .tab-panel.active { display: block; }
+
+    /* ── SALDO CARDS ── */
+    .balance-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 600px) { .balance-grid { grid-template-columns: 1fr; } }
+
+    .balance-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+
+    .balance-card.alert-card { border-color: var(--yellow); }
+
+    .balance-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .balance-value {
+      font-size: 40px;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .balance-value.leave { color: var(--green); }
+    .balance-value.permission { color: #38bdf8; }
+
+    .balance-sub {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    .alert-banner {
+      background: #451a03;
+      border: 1px solid #92400e;
+      color: #fcd34d;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .alert-banner.show { display: flex; align-items: center; gap: 10px; }
+
+    /* ── FORM ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .card h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+
+    .form-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .form-group { flex: 1; min-width: 120px; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s;
+      font-family: inherit;
+    }
+
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+
+    .btn {
+      padding: 9px 18px;
+      border-radius: 7px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn:hover { background: var(--accent-hover); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── STORICO ── */
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    .history-table th {
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .history-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #1e293b;
+      color: var(--text);
+    }
+
+    .history-table tr:hover td { background: #1e293b44; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .badge-red { background: #7f1d1d; color: #fca5a5; }
+
+    .del-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 16px;
+      transition: color 0.15s;
+    }
+    .del-btn:hover { color: var(--red); }
+
+    .empty { text-align: center; color: var(--muted); padding: 32px; font-size: 14px; }
+
+    /* ── ADMIN ── */
+    .admin-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .user-config-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+    }
+
+    .user-config-card h4 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .user-config-card .user-meta {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    .config-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #166534;
+      color: #bbf7d0;
+      border: 1px solid #15803d;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 9999;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: all 0.25s;
+      pointer-events: none;
+    }
+
+    .toast.error { background: #7f1d1d; color: #fca5a5; border-color: #991b1b; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-brand">🏖️ Leave Manager</div>
+  <div class="nav-right">
+    <span class="nav-user" id="navUser"></span>
+    <button class="btn-sm" id="logoutBtn">Esci</button>
+  </div>
+</nav>
+
+<div class="tabs" id="tabBar">
+  <div class="tab active" data-tab="dashboard">Dashboard</div>
+  <div class="tab" data-tab="leave">Ferie</div>
+  <div class="tab" data-tab="permission">Permessi</div>
+  <div class="tab" data-tab="admin" id="adminTab" style="display:none">Impostazioni</div>
+</div>
+
+<!-- ── DASHBOARD ── -->
+<div class="tab-panel active" id="panel-dashboard">
+  <div class="alert-banner" id="alertLeave">
+    ⚠️ <span id="alertLeaveText"></span>
+  </div>
+  <div class="alert-banner" id="alertPerm">
+    ⚠️ <span id="alertPermText"></span>
+  </div>
+
+  <div class="balance-grid">
+    <div class="balance-card" id="leaveCard">
+      <div class="balance-label">Ferie residue</div>
+      <div class="balance-value leave" id="leaveTotal">–</div>
+      <div class="balance-sub" id="leaveSub"></div>
+    </div>
+    <div class="balance-card" id="permCard">
+      <div class="balance-label">Permessi residui</div>
+      <div class="balance-value permission" id="permTotal">–</div>
+      <div class="balance-sub" id="permSub"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Riepilogo anno corrente</h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; font-size:14px;">
+      <div>
+        <div style="color:var(--muted); margin-bottom:4px;">Ferie maturate (anno corrente)</div>
+        <div id="leaveAccrued" style="font-size:18px; font-weight:600;">–</div>
+      </div>
+      <div>
+        <div style="color:var(--muted); margin-bottom:4px;">Ferie usate (anno corrente)</div>
+        <div id="leaveUsed" style="font-size:18px; font-weight:600;">–</div>
+      </div>
+      <div>
+        <div style="color:var(--muted); margin-bottom:4px;">Permessi maturati (anno corrente)</div>
+        <div id="permAccrued" style="font-size:18px; font-weight:600;">–</div>
+      </div>
+      <div>
+        <div style="color:var(--muted); margin-bottom:4px;">Permessi usati (anno corrente)</div>
+        <div id="permUsed" style="font-size:18px; font-weight:600;">–</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── FERIE ── -->
+<div class="tab-panel" id="panel-leave">
+  <div class="card">
+    <h3>Inserisci ferie</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Giorni</label>
+        <input type="number" id="leaveDays" min="0.5" step="0.5" placeholder="Es. 2" />
+      </div>
+      <div class="form-group">
+        <label>Data (riferimento)</label>
+        <input type="date" id="leaveDate" />
+      </div>
+      <div class="form-group" style="flex:2; min-width:180px;">
+        <label>Nota (opzionale)</label>
+        <input type="text" id="leaveNote" placeholder="Es. Settimana bianca" />
+      </div>
+      <div>
+        <button class="btn" id="addLeaveBtn">Aggiungi</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Storico ferie</h3>
+    <div id="leaveHistoryWrap">
+      <div class="empty">Caricamento...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PERMESSI ── -->
+<div class="tab-panel" id="panel-permission">
+  <div class="card">
+    <h3>Inserisci permesso</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Ore</label>
+        <input type="number" id="permHours" min="0.5" step="0.5" placeholder="Es. 4" />
+      </div>
+      <div class="form-group">
+        <label>Data (riferimento)</label>
+        <input type="date" id="permDate" />
+      </div>
+      <div class="form-group" style="flex:2; min-width:180px;">
+        <label>Nota (opzionale)</label>
+        <input type="text" id="permNote" placeholder="Es. Visita medica" />
+      </div>
+      <div>
+        <button class="btn" id="addPermBtn">Aggiungi</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Storico permessi</h3>
+    <div id="permHistoryWrap">
+      <div class="empty">Caricamento...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ADMIN ── -->
+<div class="tab-panel" id="panel-admin">
+  <div class="section-title">Impostazioni</div>
+
+  <div class="card">
+    <h3>Configurazione maturazione per utente</h3>
+    <div class="admin-grid" id="configGrid">
+      <div class="empty">Caricamento...</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Aggiungi nuovo utente</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="newUsername" placeholder="username" />
+      </div>
+      <div class="form-group">
+        <label>Nome visualizzato</label>
+        <input type="text" id="newDisplayName" placeholder="Nome Cognome" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="newPassword" placeholder="••••" />
+      </div>
+      <div>
+        <button class="btn" id="addUserBtn">Crea utente</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Il tuo profilo</h3>
+    <div class="form-row" style="margin-bottom:16px;">
+      <div class="form-group">
+        <label>Nome visualizzato</label>
+        <input type="text" id="newDisplayName2" placeholder="Nome Cognome" />
+      </div>
+      <div>
+        <button class="btn" id="changeNameBtn">Salva nome</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Nuova password</label>
+        <input type="password" id="newPwd" placeholder="Nuova password" />
+      </div>
+      <div class="form-group">
+        <label>Conferma</label>
+        <input type="password" id="confirmPwd" placeholder="Conferma password" />
+      </div>
+      <div>
+        <button class="btn" id="changePwdBtn">Salva password</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Saldo di apertura</h3>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:16px;">
+      Imposta un saldo iniziale con valori personalizzati. Usalo al primo avvio per caricare il residuo esatto che hai accumulato fino ad oggi, senza doverlo ricostruire mese per mese.
+    </p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Utente</label>
+        <select id="openingUser"></select>
+      </div>
+      <div class="form-group">
+        <label>Anno di riferimento</label>
+        <input type="number" id="openingYear" min="2020" max="2099" />
+      </div>
+      <div class="form-group">
+        <label>Mese di riferimento</label>
+        <input type="number" id="openingMonth" min="1" max="12" />
+      </div>
+      <div class="form-group">
+        <label>Giorni ferie residui</label>
+        <input type="number" id="openingLeaveDays" min="0" step="0.01" placeholder="Es. 7.51" />
+      </div>
+      <div class="form-group">
+        <label>Ore permesso residue</label>
+        <input type="number" id="openingPermHours" min="0" step="0.01" placeholder="Es. 13.34" />
+      </div>
+      <div>
+        <button class="btn" id="openingBtn">Imposta saldo</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="backfillCard">
+    <h3>Maturazione manuale (backfill)</h3>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:16px;">
+      Aggiungi manualmente la maturazione per un mese specifico usando i tassi configurati (utile per i mesi passati non ancora registrati).
+    </p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Utente</label>
+        <select id="backfillUser"></select>
+      </div>
+      <div class="form-group">
+        <label>Anno</label>
+        <input type="number" id="backfillYear" value="" min="2020" max="2099" />
+      </div>
+      <div class="form-group">
+        <label>Mese</label>
+        <input type="number" id="backfillMonth" min="1" max="12" />
+      </div>
+      <div>
+        <button class="btn" id="backfillBtn">Aggiungi maturazione</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let currentUser = null;
+
+  // ── UTILS ─────────────────────────────────────────────────────────────────
+
+  function showToast(msg, isError = false) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast' + (isError ? ' error' : '') + ' show';
+    setTimeout(() => { t.className = 'toast' + (isError ? ' error' : ''); }, 3000);
+  }
+
+  async function api(method, path, body) {
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch('/api' + path, opts);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Errore');
+    return data;
+  }
+
+  function fmt(n, unit) {
+    const v = parseFloat(n) || 0;
+    return v.toFixed(unit === 'h' ? 1 : 1).replace('.0', '') + ' ' + unit;
+  }
+
+  function todayISO() {
+    return new Date().toISOString().split('T')[0];
+  }
+
+  function formatDate(str) {
+    if (!str) return '–';
+    const d = new Date(str + 'T00:00:00');
+    return d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  // ── AUTH ──────────────────────────────────────────────────────────────────
+
+  async function init() {
+    try {
+      const me = await fetch('/auth/me').then(r => r.ok ? r.json() : null);
+      if (!me) { location.href = '/'; return; }
+      currentUser = me;
+      document.getElementById('navUser').textContent = me.displayName;
+      document.getElementById('newDisplayName2').value = me.displayName;
+      if (me.isAdmin) {
+        document.getElementById('adminTab').style.display = '';
+      }
+      setDefaultDates();
+      loadBalance();
+      loadLeaveHistory();
+      loadPermHistory();
+      if (me.isAdmin) loadAdminPanel();
+    } catch {
+      location.href = '/';
+    }
+  }
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await fetch('/auth/logout', { method: 'POST' });
+    location.href = '/';
+  });
+
+  // ── TABS ──────────────────────────────────────────────────────────────────
+
+  document.getElementById('tabBar').addEventListener('click', e => {
+    const tab = e.target.closest('.tab');
+    if (!tab) return;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+  });
+
+  // ── BALANCE ───────────────────────────────────────────────────────────────
+
+  async function loadBalance() {
+    try {
+      const b = await api('GET', '/balance');
+
+      document.getElementById('leaveTotal').textContent = fmt(b.leave.remainingTotal, 'gg');
+      document.getElementById('leaveSub').textContent =
+        `${fmt(b.leave.remainingCurrentYear, 'gg')} anno corrente` +
+        (b.leave.remainingFromPreviousYear > 0 ? ` · ${fmt(b.leave.remainingFromPreviousYear, 'gg')} anno prec.` : '');
+
+      document.getElementById('permTotal').textContent = fmt(b.permission.remainingTotal, 'h');
+      document.getElementById('permSub').textContent =
+        `${fmt(b.permission.remainingCurrentYear, 'h')} anno corrente` +
+        (b.permission.remainingFromPreviousYear > 0 ? ` · ${fmt(b.permission.remainingFromPreviousYear, 'h')} anno prec.` : '');
+
+      document.getElementById('leaveAccrued').textContent = fmt(b.leave.accrued, 'gg');
+      document.getElementById('leaveUsed').textContent = fmt(b.leave.used, 'gg');
+      document.getElementById('permAccrued').textContent = fmt(b.permission.accrued, 'h');
+      document.getElementById('permUsed').textContent = fmt(b.permission.used, 'h');
+
+      // Alert anno precedente
+      if (b.leave.hasPreviousYearRemainder) {
+        const el = document.getElementById('alertLeave');
+        el.classList.add('show');
+        document.getElementById('alertLeaveText').textContent =
+          `Hai ${fmt(b.leave.remainingFromPreviousYear, 'gg')} di ferie residue dal ${b.previousYear} — considera di smaltirle!`;
+        document.getElementById('leaveCard').classList.add('alert-card');
+      }
+
+      if (b.permission.hasPreviousYearRemainder) {
+        const el = document.getElementById('alertPerm');
+        el.classList.add('show');
+        document.getElementById('alertPermText').textContent =
+          `Hai ${fmt(b.permission.remainingFromPreviousYear, 'h')} di permessi residui dal ${b.previousYear} — considera di smaltirli!`;
+        document.getElementById('permCard').classList.add('alert-card');
+      }
+    } catch (e) {
+      showToast('Errore caricamento saldo: ' + e.message, true);
+    }
+  }
+
+  // ── FERIE ─────────────────────────────────────────────────────────────────
+
+  function setDefaultDates() {
+    document.getElementById('leaveDate').value = todayISO();
+    document.getElementById('permDate').value = todayISO();
+  }
+
+  document.getElementById('addLeaveBtn').addEventListener('click', async () => {
+    const days = document.getElementById('leaveDays').value;
+    const note = document.getElementById('leaveNote').value;
+    const entry_date = document.getElementById('leaveDate').value;
+    if (!days) return showToast('Inserisci il numero di giorni', true);
+    try {
+      await api('POST', '/leave', { days, note, entry_date });
+      document.getElementById('leaveDays').value = '';
+      document.getElementById('leaveNote').value = '';
+      showToast('Ferie registrate!');
+      loadBalance();
+      loadLeaveHistory();
+    } catch (e) { showToast(e.message, true); }
+  });
+
+  async function loadLeaveHistory() {
+    const wrap = document.getElementById('leaveHistoryWrap');
+    try {
+      const rows = await api('GET', '/leave');
+      if (!rows.length) {
+        wrap.innerHTML = '<div class="empty">Nessuna ferie registrata</div>';
+        return;
+      }
+      wrap.innerHTML = `
+        <table class="history-table">
+          <thead><tr>
+            <th>Data</th><th>Giorni</th><th>Anno</th><th>Nota</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td>${formatDate(r.entry_date)}</td>
+                <td><span class="badge badge-red">-${r.days} gg</span></td>
+                <td>${r.year}</td>
+                <td>${r.note || '<span style="color:var(--muted)">–</span>'}</td>
+                <td><button class="del-btn" data-id="${r.id}" data-type="leave" title="Elimina">✕</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`;
+    } catch (e) {
+      wrap.innerHTML = `<div class="empty">Errore: ${e.message}</div>`;
+    }
+  }
+
+  // ── PERMESSI ──────────────────────────────────────────────────────────────
+
+  document.getElementById('addPermBtn').addEventListener('click', async () => {
+    const hours = document.getElementById('permHours').value;
+    const note = document.getElementById('permNote').value;
+    const entry_date = document.getElementById('permDate').value;
+    if (!hours) return showToast('Inserisci il numero di ore', true);
+    try {
+      await api('POST', '/permission', { hours, note, entry_date });
+      document.getElementById('permHours').value = '';
+      document.getElementById('permNote').value = '';
+      showToast('Permesso registrato!');
+      loadBalance();
+      loadPermHistory();
+    } catch (e) { showToast(e.message, true); }
+  });
+
+  async function loadPermHistory() {
+    const wrap = document.getElementById('permHistoryWrap');
+    try {
+      const rows = await api('GET', '/permission');
+      if (!rows.length) {
+        wrap.innerHTML = '<div class="empty">Nessun permesso registrato</div>';
+        return;
+      }
+      wrap.innerHTML = `
+        <table class="history-table">
+          <thead><tr>
+            <th>Data</th><th>Ore</th><th>Anno</th><th>Nota</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td>${formatDate(r.entry_date)}</td>
+                <td><span class="badge badge-red">-${r.hours} h</span></td>
+                <td>${r.year}</td>
+                <td>${r.note || '<span style="color:var(--muted)">–</span>'}</td>
+                <td><button class="del-btn" data-id="${r.id}" data-type="permission" title="Elimina">✕</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`;
+    } catch (e) {
+      wrap.innerHTML = `<div class="empty">Errore: ${e.message}</div>`;
+    }
+  }
+
+  // ── DELETE delegato ────────────────────────────────────────────────────────
+
+  document.body.addEventListener('click', async e => {
+    const btn = e.target.closest('.del-btn');
+    if (!btn) return;
+    if (!confirm('Eliminare questa voce?')) return;
+    const { id, type } = btn.dataset;
+    try {
+      await api('DELETE', `/${type}/${id}`);
+      showToast('Voce eliminata');
+      loadBalance();
+      if (type === 'leave') loadLeaveHistory();
+      else loadPermHistory();
+    } catch (e) { showToast(e.message, true); }
+  });
+
+  // ── ADMIN ─────────────────────────────────────────────────────────────────
+
+  async function loadAdminPanel() {
+    const grid = document.getElementById('configGrid');
+    try {
+      const configs = await api('GET', '/config');
+      const users = await api('GET', '/users');
+
+      // popola select utenti (backfill e opening)
+      const userOptions = users.map(u => `<option value="${u.id}">${u.display_name} (${u.username})</option>`).join('');
+      document.getElementById('backfillUser').innerHTML = userOptions;
+      document.getElementById('openingUser').innerHTML = userOptions;
+
+      const now = new Date();
+      document.getElementById('backfillYear').value = now.getFullYear();
+      document.getElementById('backfillMonth').value = now.getMonth() + 1;
+      document.getElementById('openingYear').value = now.getFullYear();
+      document.getElementById('openingMonth').value = now.getMonth() + 1;
+
+      grid.innerHTML = configs.map(u => `
+        <div class="user-config-card">
+          <h4>${u.display_name} ${u.is_admin ? '<span style="color:var(--accent);font-size:11px">[admin]</span>' : ''}</h4>
+          <div class="user-meta">@${u.username}</div>
+          <div class="config-row">
+            <div class="form-group">
+              <label>Giorni ferie / mese</label>
+              <input type="number" class="cfg-leave" data-uid="${u.id}" value="${u.leave_days_per_month ?? 2}" min="0" step="0.5" />
+            </div>
+            <div class="form-group">
+              <label>Ore permesso / mese</label>
+              <input type="number" class="cfg-perm" data-uid="${u.id}" value="${u.permission_hours_per_month ?? 0}" min="0" step="0.5" />
+            </div>
+            <div>
+              <button class="btn cfg-save-btn" data-uid="${u.id}">Salva</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    } catch (e) {
+      grid.innerHTML = `<div class="empty">Errore: ${e.message}</div>`;
+    }
+  }
+
+  document.getElementById('configGrid').addEventListener('click', async e => {
+    const btn = e.target.closest('.cfg-save-btn');
+    if (!btn) return;
+    const uid = btn.dataset.uid;
+    const leave = document.querySelector(`.cfg-leave[data-uid="${uid}"]`).value;
+    const perm = document.querySelector(`.cfg-perm[data-uid="${uid}"]`).value;
+    try {
+      await api('PUT', `/config/${uid}`, { leave_days_per_month: leave, permission_hours_per_month: perm });
+      showToast('Configurazione salvata');
+    } catch (e) { showToast(e.message, true); }
+  });
+
+  document.getElementById('addUserBtn').addEventListener('click', async () => {
+    const username = document.getElementById('newUsername').value.trim();
+    const display_name = document.getElementById('newDisplayName').value.trim();
+    const password = document.getElementById('newPassword').value;
+    if (!username || !display_name || !password) return showToast('Compila tutti i campi', true);
+    try {
+      await api('POST', '/users', { username, display_name, password });
+      document.getElementById('newUsername').value = '';
+      document.getElementById('newDisplayName').value = '';
+      document.getElementById('newPassword').value = '';
+      showToast('Utente creato!');
+      loadAdminPanel();
+    } catch (e) { showToast(e.message, true); }
+  });
+
+  document.getElementById('changeNameBtn').addEventListener('click', async () => {
+    const display_name = document.getElementById('newDisplayName2').value.trim();
+    if (!display_name) return showToast('Inserisci un nome', true);
+    try {
+      await api('PUT', `/users/${currentUser.userId}/display-name`, { display_name });
+      currentUser.displayName = display_name;
+      document.getElementById('navUser').textContent = display_name;
+      showToast('Nome aggiornato!');
+    } catch (e) { showToast(e.message, true); }
+  });
+
+  document.getElementById('changePwdBtn').addEventListener('click', async () => {
+    const pwd = document.getElementById('newPwd').value;
+    const confirm = document.getElementById('confirmPwd').value;
+    if (!pwd) return showToast('Inserisci la nuova password', true);
+    if (pwd !== confirm) return showToast('Le password non coincidono', true);
+    try {
+      await api('PUT', `/users/${currentUser.userId}/password`, { password: pwd });
+      document.getElementById('newPwd').value = '';
+      document.getElementById('confirmPwd').value = '';
+      showToast('Password aggiornata!');
+    } catch (e) { showToast(e.message, true); }
+  });
+
+  document.getElementById('openingBtn').addEventListener('click', async () => {
+    const user_id = document.getElementById('openingUser').value;
+    const year = document.getElementById('openingYear').value;
+    const month = document.getElementById('openingMonth').value;
+    const leave_days = document.getElementById('openingLeaveDays').value;
+    const permission_hours = document.getElementById('openingPermHours').value;
+    if (!leave_days && !permission_hours) return showToast('Inserisci almeno un valore', true);
+    try {
+      await api('POST', '/accrual/opening', {
+        user_id: parseInt(user_id),
+        year: parseInt(year),
+        month: parseInt(month),
+        leave_days: parseFloat(leave_days) || 0,
+        permission_hours: parseFloat(permission_hours) || 0
+      });
+      showToast('Saldo di apertura impostato!');
+      loadBalance();
+    } catch (e) { showToast(e.message, true); }
+  });
+
+  document.getElementById('backfillBtn').addEventListener('click', async () => {
+    const user_id = document.getElementById('backfillUser').value;
+    const year = document.getElementById('backfillYear').value;
+    const month = document.getElementById('backfillMonth').value;
+    try {
+      const r = await api('POST', '/accrual/manual', { user_id: parseInt(user_id), year: parseInt(year), month: parseInt(month) });
+      showToast(`Maturazione aggiunta: +${r.leave_days_added} gg / +${r.permission_hours_added} h`);
+      loadBalance();
+    } catch (e) { showToast(e.message, true); }
+  });
+
+  init();
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "leave-manager",
+  "version": "1.0.0",
+  "description": "Gestione ferie e permessi personale",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node --watch app.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "bcryptjs": "^2.4.3",
+    "connect-sqlite3": "^0.9.13",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "node-cron": "^3.0.3",
+    "sqlite3": "^5.1.7"
+  }
+}

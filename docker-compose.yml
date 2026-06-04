@@ -1,0 +1,15 @@
+services:
+  leave-manager:
+    build: .
+    container_name: leave-manager
+    ports:
+      - "3000:3000"
+    volumes:
+      - leave-data:/app/data
+    env_file:
+      - .env
+    restart: unless-stopped
+
+
+volumes:
+  leave-data:
